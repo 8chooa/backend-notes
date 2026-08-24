@@ -3,6 +3,8 @@ const cors = require('cors')
 
 const app = express()
 
+app.use(express.static('dist'))
+
 app.use(cors())
 
 app.use(express.json()) //convierte a objeto JS un JSON en el cuerpo de solicitud de un POST enviado por el cliente, además el objeto lo pasa a la propiedad request.body
