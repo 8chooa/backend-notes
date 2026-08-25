@@ -80,6 +80,12 @@ app.delete('/api/notes/:id', (request, response) => {
     response.status(204).end()
 })
 
+const unknowEndpoint = (request, response) => {
+    response.status(404).send({ error: 'unknown endpoint'})
+}
+
+app.use(unknowEndpoint)
+
 const PORT = process.env.PORT || 3001
 //pone a la aplicación a escuchar en el puerto indicado
 app.listen(PORT, () => { //la funcion callback se ejecuta solo cuando el servidor se ha encendido con éxito
