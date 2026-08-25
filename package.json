@@ -9,10 +9,14 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
-    "start": "node index.js"
+    "start": "node index.js",
+    "build:ui": "rimraf dist && cd ../frontend && npm run build && copyfiles dist/**/* ../backend",
+    "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "copyfiles": "^2.4.1",
+    "nodemon": "^3.1.14",
+    "rimraf": "^6.1.3"
   },
   "dependencies": {
     "cors": "^2.8.6",
