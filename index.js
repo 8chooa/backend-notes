@@ -1,5 +1,7 @@
+require('dotenv').config() //para tener acceso a las variables establecidas en el .env
 const express = require('express')
 const cors = require('cors')
+const Note = require('./models/note') //nos traemos la clase del modelo para crear objetos
 
 const app = express()
 
@@ -9,75 +11,56 @@ app.use(cors())
 
 app.use(express.json()) //convierte a objeto JS un JSON en el cuerpo de solicitud de un POST enviado por el cliente, además el objeto lo pasa a la propiedad request.body
 
-let notes = [
-    {
-        id: 1,
-        content: "HTML is easy",
-        important: true
-    },
-    {
-        id: 2,
-        content: "Browser can execute only JavaScript",
-        important: false
-    },
-    {
-        id: 3,
-        content: "GET and POST are the most important methods of HTTP protocol",
-        important: true
-    },
-    {
-        id: 4,
-        content: "EXPRESS JS is funny",
-        important: true
-    }
-]
-
 app.get('/', (request, response) => {
     response.send('<h1>Hello World!</h1>')
 })
 
 app.get('/api/notes/', (request, response) => {
-    response.json(notes)
+    Note.find({}).then(notes => {
+        response.json(notes)
+    })
 })
 
 app.get('/api/notes/:id', (request, response) => {
-    const id = Number(request.params.id)
-    const note = notes.find(n => n.id === id)
-    if(note) {
-        response.json(note)
-    } else {
-        response.statusMessage = 'Nota no encontrada en la DB!'
-        response.status(404).end()
-    }
+    Note.findById(request.params.id).then(note => {
+        if(note) {
+            response.json(note)
+        } else {
+            response.status(404).end()
+        }
+    }).catch(error => {
+        console.log(error)
+        response.status(400).send({ error: 'malformatted id'})
+    })
 })
 
-const generateId = () => { //NOTA: ESTE METODO DE GENERACION DE ID NO SE RECOMIENDA
-    const maxId = notes.length > 0 ? Math.max(...notes.map(n => n.id)) : 0
-    console.log(maxId)
-    return maxId + 1
-}
-
-app.post('/api/notes', (request, response) => {
+app.post('/api/notes', (request, response, next) => {
     const body = request.body
-    if(!body.content) {
-        return response.status(400).json({error: 'content missing'})
-    }
 
-    const note = {
+    const note = new Note({
         content: body.content,
-        important: Boolean(body.important) || false,
-        id: generateId()
-    }
-
-    notes.concat(note)
-    response.json(note)
+        important: body.important || false
+    })
+    note.save().then(savedNote => { 
+        response.json(savedNote) //los datos enviados al clientes son los formateados
+    }).catch(error => next(error))
 })
 
-app.delete('/api/notes/:id', (request, response) => {
-    const id = Number(request.params.id)
-    notes = notes.filter(n => n.id !== id)
+app.delete('/api/notes/:id', (request, response, next) => {
+    Note.findByIdAndDelete(request.params.id)
+    .then(result => {
+        console.log(result)
+        response.status(204).end()
+    }).catch(error => next(error))
+})
 
-    response.status(204).end()
+app.put('/api/notes/:id', (request, response, next) => {
+    const { content, important } = request.body
+
+    Note.findByIdAndUpdate(request.params.id, { content, important }, { new: true, context: 'query', runValidators: true })
+    .then(updatedNote => {
+        response.json(updatedNote)
+    }).catch(error => next(error))
 })
 
 const unknowEndpoint = (request, response) => {
@@ -86,7 +69,21 @@ const unknowEndpoint = (request, response) => {
 
 app.use(unknowEndpoint)
 
-const PORT = process.env.PORT || 3001
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+
+    if(error.name === 'CastError') {
+        return response.status(400).send({error: 'malformatted id'})
+    } else if(error.name == 'ValidationError') {
+        return response.status(400).json({error: error.message})
+    }
+
+    next(error)
+}
+
+app.use(errorHandler)
+
+const PORT = process.env.PORT
 //pone a la aplicación a escuchar en el puerto indicado
 app.listen(PORT, () => { //la funcion callback se ejecuta solo cuando el servidor se ha encendido con éxito
     console.log('Server running on port ', PORT)
